@@ -1,1 +1,36 @@
-Dev d'une application de scanner exadecimal pour ANDROID
+# SCANNER Exadecimal APK
+
+Nous nous sommes lancés un défi à partir d'instructions partagées par de vrais développeurs et par Codex : créer une application Android téléchargeable depuis GitHub capable de comparer la clarté de deux images destinées à une chaîne de production agroalimentaire. L'objectif est d'aider les opérateurs à identifier rapidement le produit le plus clair et à garantir une qualité visuelle homogène.
+
+## Objectifs du projet
+
+- Fournir un outil mobile simple pour analyser et comparer le pourcentage de clarté de deux échantillons visuels.
+- Faciliter les contrôles qualité dans l'industrie agroalimentaire en automatisant la comparaison.
+- Permettre un déploiement facile grâce à un APK accessible directement sur GitHub.
+
+## Fonctionnalités prévues
+
+- Import de deux images depuis la galerie ou via la prise de vue directe.
+- Calcul automatique de la clarté relative de chaque image.
+- Visualisation claire de la comparaison afin de déterminer le produit le plus clair.
+- Historique des comparaisons pour un suivi qualité continu.
+
+## Installation
+
+1. Télécharger la dernière version de l'APK disponible sur la page de releases GitHub.
+2. Transférer l'APK sur votre appareil Android ou scanner le code QR si disponible.
+3. Autoriser l'installation depuis des sources inconnues si nécessaire, puis lancer l'installation.
+
+## Utilisation
+
+1. Ouvrir l'application et sélectionner les deux images à comparer.
+2. Laisser l'algorithme calculer le pourcentage de clarté de chaque image.
+3. Consulter le résultat pour identifier le produit le plus clair et enregistrer la comparaison si besoin.
+
+## Contributions
+
+Les contributions sont les bienvenues pour améliorer la précision des analyses, enrichir l'interface ou automatiser davantage l'intégration dans les pipelines de production. Merci d'ouvrir une issue ou une pull request avant de proposer une modification majeure.
+
+---
+
+Projet développé dans le cadre d'un défi collaboratif inspiré par la réalité du terrain.
