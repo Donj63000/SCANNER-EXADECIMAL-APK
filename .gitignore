@@ -1,0 +1,14 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+app/build/
+imagequality/build/
+gradle/wrapper/gradle-wrapper-main-*.jar
+gradle/wrapper/gradle-wrapper-shared-*.jar
+gradle/wrapper/gradle-*/
