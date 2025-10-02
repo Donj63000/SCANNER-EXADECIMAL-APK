@@ -19,6 +19,15 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Prepare Gradle Wrapper
+        run: |
+          set -eo pipefail
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            VERSION=$(grep distributionUrl gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([0-9.]+)-.*/\1/')
+            curl -sSfL "https://services.gradle.org/distributions/gradle-${VERSION}-wrapper.jar" -o gradle/wrapper/gradle-wrapper.jar
+          fi
+          chmod +x gradlew
+
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@v3
 
@@ -31,9 +40,6 @@ jobs:
           key: \${{ runner.os }}-gradle-\${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             \${{ runner.os }}-gradle-
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
 
       - name: Build and Test
         run: ./gradlew clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :imagequality:testDebugUnitTest
