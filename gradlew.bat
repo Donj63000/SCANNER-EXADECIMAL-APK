@@ -1,42 +1,94 @@
-@echo off
+@rem
+@rem Copyright 2015 the original author or authors.
+@rem
+@rem Licensed under the Apache License, Version 2.0 (the "License");
+@rem you may not use this file except in compliance with the License.
+@rem You may obtain a copy of the License at
+@rem
+@rem      https://www.apache.org/licenses/LICENSE-2.0
+@rem
+@rem Unless required by applicable law or agreed to in writing, software
+@rem distributed under the License is distributed on an "AS IS" BASIS,
+@rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+@rem See the License for the specific language governing permissions and
+@rem limitations under the License.
+@rem
+@rem SPDX-License-Identifier: Apache-2.0
+@rem
+
+@if "%DEBUG%"=="" @echo off
+@rem ##########################################################################
+@rem
+@rem  Gradle startup script for Windows
+@rem
+@rem ##########################################################################
+
+@rem Set local scope for the variables with windows NT shell
 if "%OS%"=="Windows_NT" setlocal
-set "APP_HOME=%~dp0"
-if "%APP_HOME%"=="" set "APP_HOME=."
-for %%i in ("%APP_HOME%") do set "APP_HOME=%%~fi"
-set "DISTRIBUTION_URL=https://services.gradle.org/distributions/gradle-8.10.2-bin.zip"
-set "DIST_NAME=gradle-8.10.2"
-set "WRAPPER_DIR=%APP_HOME%\gradle\wrapper"
-set "DIST_DIR=%WRAPPER_DIR%\%DIST_NAME%"
-set "GRADLE_CMD=%DIST_DIR%\bin\gradle.bat"
-if not exist "%GRADLE_CMD%" (
-    set "TMP=%TEMP%\gradle-wrapper-%RANDOM%%RANDOM%"
-    powershell -NoProfile -Command ^
-        "$ErrorActionPreference='Stop';" ^
-        "$url='%DISTRIBUTION_URL%';" ^
-        "$tmp='%TMP%';" ^
-        "[System.IO.Directory]::CreateDirectory($tmp) | Out-Null;" ^
-        "$zip=Join-Path $tmp 'gradle.zip';" ^
-        "Invoke-WebRequest -Uri $url -OutFile $zip;" ^
-        "$dest='%WRAPPER_DIR%';" ^
-        "$dist='%DIST_NAME%';" ^
-        "Add-Type -AssemblyName System.IO.Compression.FileSystem;" ^
-        "$target = Join-Path $dest $dist;" ^
-        "if (Test-Path $target) { Remove-Item -Recurse -Force $target; }" ^
-        "[System.IO.Directory]::CreateDirectory($dest) | Out-Null;" ^
-        "$archive=[System.IO.Compression.ZipFile]::OpenRead($zip);" ^
-        "foreach ($entry in $archive.Entries) { if ($entry.FullName.StartsWith($dist + '/')) { $relative = $entry.FullName.Substring($dist.Length + 1); if ($relative.Length -eq 0) { continue } $targetPath = Join-Path $target $relative; if ($entry.FullName.EndsWith('/')) { [System.IO.Directory]::CreateDirectory($targetPath) | Out-Null; } else { [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($targetPath)) | Out-Null; $entry.ExtractToFile($targetPath, $true); } } }" ^
-        "$archive.Dispose();" ^
-        "Remove-Item -Recurse -Force $tmp;"
-    if errorlevel 1 goto fail
-)
-call "%GRADLE_CMD%" %*
-set EXIT_CODE=%ERRORLEVEL%
-if not "%EXIT_CODE%"=="0" goto fail
-if "%OS%"=="Windows_NT" endlocal
-exit /b 0
+
+set DIRNAME=%~dp0
+if "%DIRNAME%"=="" set DIRNAME=.
+@rem This is normally unused
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
+
+@rem Resolve any "." and ".." in APP_HOME to make it shorter.
+for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
+
+@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
+
+@rem Find java.exe
+if defined JAVA_HOME goto findJavaFromJavaHome
+
+set JAVA_EXE=java.exe
+%JAVA_EXE% -version >NUL 2>&1
+if %ERRORLEVEL% equ 0 goto execute
+
+echo. 1>&2
+echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
+echo. 1>&2
+echo Please set the JAVA_HOME variable in your environment to match the 1>&2
+echo location of your Java installation. 1>&2
+
+goto fail
+
+:findJavaFromJavaHome
+set JAVA_HOME=%JAVA_HOME:"=%
+set JAVA_EXE=%JAVA_HOME%/bin/java.exe
+
+if exist "%JAVA_EXE%" goto execute
+
+echo. 1>&2
+echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
+echo. 1>&2
+echo Please set the JAVA_HOME variable in your environment to match the 1>&2
+echo location of your Java installation. 1>&2
+
+goto fail
+
+:execute
+@rem Setup the command line
+
+set CLASSPATH=
+
+
+@rem Execute Gradle
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
+
+:end
+@rem End local scope for the variables with windows NT shell
+if %ERRORLEVEL% equ 0 goto mainEnd
+
 :fail
-if not defined EXIT_CODE set EXIT_CODE=%ERRORLEVEL%
+rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
+rem the _cmd.exe /c_ return code!
+set EXIT_CODE=%ERRORLEVEL%
 if %EXIT_CODE% equ 0 set EXIT_CODE=1
-if "%OS%"=="Windows_NT" endlocal
 if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
 exit /b %EXIT_CODE%
+
+:mainEnd
+if "%OS%"=="Windows_NT" endlocal
+
+:omega

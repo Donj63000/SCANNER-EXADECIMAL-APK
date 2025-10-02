@@ -24,7 +24,11 @@ jobs:
           set -eo pipefail
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
             VERSION=$(grep distributionUrl gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([0-9.]+)-.*/\1/')
-            curl -sSfL "https://services.gradle.org/distributions/gradle-${VERSION}-wrapper.jar" -o gradle/wrapper/gradle-wrapper.jar
+            BASE_URL="https://services.gradle.org/distributions"
+            JAR="gradle-${VERSION}-wrapper.jar"
+            curl -sSfL "${BASE_URL}/${JAR}" -o gradle/wrapper/gradle-wrapper.jar
+            CHECKSUM=$(curl -sSfL "${BASE_URL}/${JAR}.sha256")
+            echo "${CHECKSUM}  gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
           fi
           chmod +x gradlew
 
