@@ -1,4 +1,4 @@
-package com.photo.clarity.ui
+package com.rochias.clarity.ui
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -33,10 +33,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.photo.clarity.camera.CameraPreview
-import com.photo.clarity.camera.CameraCaptureState
-import com.photo.clarity.camera.rememberCameraCaptureState
-import com.photo.clarity.iq.Clarity
+import com.rochias.clarity.camera.CameraPreview
+import com.rochias.clarity.camera.CameraCaptureState
+import com.rochias.clarity.camera.rememberCameraCaptureState
+import com.rochias.clarity.iq.Clarity
 import kotlinx.coroutines.launch
 
 @Composable
