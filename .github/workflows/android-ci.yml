@@ -36,4 +36,4 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build and Test
-        run: ./gradlew clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
+        run: ./gradlew clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :imagequality:testDebugUnitTest
