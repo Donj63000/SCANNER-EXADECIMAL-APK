@@ -3,11 +3,7 @@ package com.photo.clarity.camera
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
 import android.graphics.Matrix
-import android.graphics.Rect
-import android.graphics.YuvImage
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -25,7 +21,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.camera.view.PreviewView
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -46,7 +41,7 @@ class CameraCaptureState internal constructor(
                 override fun onCaptureSuccess(image: ImageProxy) {
                     val result = runCatching {
                         val rotation = image.imageInfo.rotationDegrees
-                        val bitmap = image.toBitmap()?.let { it.rotate(rotation) } ?: throw IOException("Unable to process image")
+                        val bitmap = image.toBitmap().rotate(rotation)
                         val uri = context.saveBitmapToClarity(bitmap)
                         CapturedImage(uri, bitmap)
                     }
@@ -99,25 +94,12 @@ fun CameraPreview(state: CameraCaptureState, modifier: Modifier = Modifier) {
     )
 }
 
-private fun ImageProxy.toBitmap(): Bitmap? {
-    val yBuffer = planes[0].buffer
-    val uBuffer = planes[1].buffer
-    val vBuffer = planes[2].buffer
-    val ySize = yBuffer.remaining()
-    val uSize = uBuffer.remaining()
-    val vSize = vBuffer.remaining()
-    val nv21 = ByteArray(ySize + uSize + vSize)
-    yBuffer.get(nv21, 0, ySize)
-    vBuffer.get(nv21, ySize, vSize)
-    uBuffer.get(nv21, ySize + vSize, uSize)
-    val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-    return runCatching {
-        ByteArrayOutputStream().use { stream ->
-            yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, stream)
-            val bytes = stream.toByteArray()
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        }
-    }.getOrNull()
+private val sharedYuvToRgbConverter = YuvToRgbConverter()
+
+private fun ImageProxy.toBitmap(): Bitmap {
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    sharedYuvToRgbConverter.convert(this, bitmap)
+    return bitmap
 }
 
 private fun Bitmap.rotate(degrees: Int): Bitmap {
