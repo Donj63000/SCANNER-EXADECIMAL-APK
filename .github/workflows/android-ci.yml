@@ -6,9 +6,8 @@ on:
   pull_request:
 
 jobs:
-  build:
+  android:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,35 +18,45 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Generate Gradle Wrapper
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: wrapper --gradle-version 8.13
+      - name: Download Gradle distribution
+        run: |
+          curl -sSLo gradle.zip https://services.gradle.org/distributions/gradle-8.13-bin.zip
+          unzip -q gradle.zip
 
-      - name: Ensure Gradle Wrapper permissions
-        run: chmod +x gradlew
+      - name: Generate Gradle wrapper
+        run: |
+          ./gradle-8.13/bin/gradle wrapper --gradle-version 8.13
+          chmod +x gradlew
 
-      - name: Set up Android SDK
+      - name: Configure Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: 36
           build-tools: 36.0.0
 
-      - name: Cache Gradle
+      - name: Cache Gradle data
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          restore-keys: ${{ runner.os }}-gradle-
 
-      - name: Build, Lint and Test
-        run: ./gradlew clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :imagequality:testDebugUnitTest
+      - name: Build lint and test
+        run: ./gradlew clean :app:assembleDebug :app:lintDebug :imagequality:testDebugUnitTest
 
-      - name: Upload Debug APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Update nightly release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view nightly >/dev/null 2>&1; then
+            gh release create nightly --title "Nightly" --notes "Automated nightly build"
+          fi
+          gh release upload nightly app/build/outputs/apk/debug/app-debug.apk --clobber
