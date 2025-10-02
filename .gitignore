@@ -12,3 +12,5 @@ imagequality/build/
 gradle/wrapper/gradle-wrapper-main-*.jar
 gradle/wrapper/gradle-wrapper-shared-*.jar
 gradle/wrapper/gradle-*/
+gradle/wrapper/gradle-*
+
