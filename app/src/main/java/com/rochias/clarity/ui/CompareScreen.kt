@@ -1,6 +1,12 @@
 package com.rochias.clarity.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,8 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.rochias.clarity.camera.CameraPreview
 import com.rochias.clarity.camera.CameraCaptureState
 import com.rochias.clarity.camera.rememberCameraCaptureState
@@ -46,12 +54,28 @@ import kotlinx.coroutines.launch
 fun CompareScreen(modifier: Modifier = Modifier) {
     val cameraState = rememberCameraCaptureState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val storagePermission = Manifest.permission.WRITE_EXTERNAL_STORAGE
+    val requiresStoragePermission = remember { Build.VERSION.SDK_INT < Build.VERSION_CODES.Q }
+    var hasStoragePermission by remember {
+        mutableStateOf(
+            !requiresStoragePermission || ContextCompat.checkSelfPermission(context, storagePermission) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val storagePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasStoragePermission = granted
+        if (!granted) {
+            errorMessage = "Storage permission is required to save images"
+        }
+    }
     var firstBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var secondBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var firstImageUri by remember { mutableStateOf<Uri?>(null) }
+    var secondImageUri by remember { mutableStateOf<Uri?>(null) }
     var firstClarity by remember { mutableStateOf<ClarityEvaluation?>(null) }
     var secondClarity by remember { mutableStateOf<ClarityEvaluation?>(null) }
     var isCapturing by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -63,33 +87,43 @@ fun CompareScreen(modifier: Modifier = Modifier) {
         CaptureControls(
             isCapturing = isCapturing,
             onCaptureFirst = {
-                scope.launch {
-                    captureImage(cameraState, onResult = { bitmap ->
-                        firstBitmap = bitmap
-                        firstClarity = bitmap?.let { evaluateClarity(it) }
-                    }, onError = { message ->
-                        errorMessage = message
-                    }, onStateChange = { busy ->
-                        isCapturing = busy
-                    })
+                if (requiresStoragePermission && !hasStoragePermission) {
+                    storagePermissionLauncher.launch(storagePermission)
+                } else {
+                    scope.launch {
+                        captureImage(cameraState, onResult = { uri, bitmap ->
+                            firstImageUri = uri
+                            firstBitmap = bitmap
+                            firstClarity = evaluateClarity(bitmap)
+                        }, onError = { message ->
+                            errorMessage = message
+                        }, onStateChange = { busy ->
+                            isCapturing = busy
+                        })
+                    }
                 }
             },
             onCaptureSecond = {
-                scope.launch {
-                    captureImage(cameraState, onResult = { bitmap ->
-                        secondBitmap = bitmap
-                        secondClarity = bitmap?.let { evaluateClarity(it) }
-                    }, onError = { message ->
-                        errorMessage = message
-                    }, onStateChange = { busy ->
-                        isCapturing = busy
-                    })
+                if (requiresStoragePermission && !hasStoragePermission) {
+                    storagePermissionLauncher.launch(storagePermission)
+                } else {
+                    scope.launch {
+                        captureImage(cameraState, onResult = { uri, bitmap ->
+                            secondImageUri = uri
+                            secondBitmap = bitmap
+                            secondClarity = evaluateClarity(bitmap)
+                        }, onError = { message ->
+                            errorMessage = message
+                        }, onStateChange = { busy ->
+                            isCapturing = busy
+                        })
+                    }
                 }
             }
         )
         ResultSection(firstClarity, secondClarity, firstBitmap, secondBitmap)
         ErrorMessage(errorMessage)
-        LaunchedEffect(firstBitmap, secondBitmap) {
+        LaunchedEffect(firstBitmap, secondBitmap, firstImageUri, secondImageUri) {
             if (errorMessage != null) {
                 errorMessage = null
             }
@@ -226,22 +260,23 @@ private fun ErrorMessage(error: String?) {
 
 private suspend fun captureImage(
     cameraState: CameraCaptureState,
-    onResult: (Bitmap?) -> Unit,
+    onResult: (Uri, Bitmap) -> Unit,
     onError: (String) -> Unit,
     onStateChange: (Boolean) -> Unit
 ) {
-    runCatching {
+    try {
         onStateChange(true)
-        val bitmap = cameraState.captureBitmap()
-        if (bitmap != null) {
-            onResult(bitmap)
+        val capture = cameraState.captureBitmap()
+        if (capture != null) {
+            onResult(capture.uri, capture.bitmap)
         } else {
             onError("Unable to capture image data")
         }
-    }.onFailure {
-        onError(it.message ?: "Failed to capture image")
+    } catch (error: Throwable) {
+        onError(error.message ?: "Failed to capture image")
+    } finally {
+        onStateChange(false)
     }
-    onStateChange(false)
 }
 
 private fun evaluateClarity(bitmap: Bitmap): ClarityEvaluation {
