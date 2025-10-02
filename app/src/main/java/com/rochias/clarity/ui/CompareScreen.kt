@@ -37,6 +37,7 @@ import com.rochias.clarity.camera.CameraPreview
 import com.rochias.clarity.camera.CameraCaptureState
 import com.rochias.clarity.camera.rememberCameraCaptureState
 import com.rochias.clarity.iq.Clarity
+import com.rochias.clarity.processing.extractLuminance
 import kotlinx.coroutines.launch
 
 @Composable
@@ -238,8 +239,9 @@ private suspend fun captureImage(
 }
 
 private fun evaluateClarity(bitmap: Bitmap): ClarityScores {
-    val laplacian = Clarity.varianceOfLaplacian(bitmap)
-    val tenengrad = Clarity.tenengrad(bitmap)
+    val image = extractLuminance(bitmap)
+    val laplacian = Clarity.varianceOfLaplacian(image.width, image.height, image.luminance)
+    val tenengrad = Clarity.tenengrad(image.width, image.height, image.luminance)
     return ClarityScores(laplacian, tenengrad)
 }
 

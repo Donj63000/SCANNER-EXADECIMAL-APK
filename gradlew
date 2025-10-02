@@ -2,8 +2,8 @@
 set -e
 
 APP_HOME=$(cd "$(dirname "$0")" && pwd -P)
-DISTRIBUTION_URL="https://services.gradle.org/distributions/gradle-8.10.2-bin.zip"
-DIST_NAME="gradle-8.10.2"
+DISTRIBUTION_URL="https://services.gradle.org/distributions/gradle-8.13-bin.zip"
+DIST_NAME="gradle-8.13"
 WRAPPER_DIR="$APP_HOME/gradle/wrapper"
 DIST_DIR="$WRAPPER_DIR/$DIST_NAME"
 GRADLE_CMD="$DIST_DIR/bin/gradle"
