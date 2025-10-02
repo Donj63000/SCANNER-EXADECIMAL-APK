@@ -1,63 +1,76 @@
 package com.rochias.clarity.iq
 
-import android.graphics.Bitmap
-import kotlin.math.pow
 import kotlin.math.sqrt
 
 object Clarity {
-    fun varianceOfLaplacian(bitmap: Bitmap): Double {
-        val width = bitmap.width
-        val height = bitmap.height
-        val grayscale = IntArray(width * height)
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val pixel = bitmap.getPixel(x, y)
-                val r = (pixel shr 16 and 0xFF)
-                val g = (pixel shr 8 and 0xFF)
-                val b = (pixel and 0xFF)
-                grayscale[y * width + x] = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-            }
-        }
+    fun varianceOfLaplacian(width: Int, height: Int, luminance: ByteArray): Double {
+        require(luminance.size == width * height) { "Luminance size mismatch" }
+        return varianceOfLaplacian(width, height) { luminance[it].toInt() and 0xFF }
+    }
+
+    fun varianceOfLaplacian(width: Int, height: Int, luminance: IntArray): Double {
+        require(luminance.size == width * height) { "Luminance size mismatch" }
+        return varianceOfLaplacian(width, height) { luminance[it] }
+    }
+
+    fun tenengrad(width: Int, height: Int, luminance: ByteArray): Double {
+        require(luminance.size == width * height) { "Luminance size mismatch" }
+        return tenengrad(width, height) { luminance[it].toInt() and 0xFF }
+    }
+
+    fun tenengrad(width: Int, height: Int, luminance: IntArray): Double {
+        require(luminance.size == width * height) { "Luminance size mismatch" }
+        return tenengrad(width, height) { luminance[it] }
+    }
+
+    private inline fun varianceOfLaplacian(width: Int, height: Int, accessor: (Int) -> Int): Double {
+        if (width < 3 || height < 3) return 0.0
         var sum = 0.0
         var sumSq = 0.0
         var count = 0
+        val stride = width
         for (y in 1 until height - 1) {
+            val row = y * stride
             for (x in 1 until width - 1) {
-                val center = grayscale[y * width + x] * 4
-                val value = center - grayscale[y * width + x - 1] - grayscale[y * width + x + 1] - grayscale[(y - 1) * width + x] - grayscale[(y + 1) * width + x]
+                val index = row + x
+                val laplacian = accessor(index) * 4 - accessor(index - 1) - accessor(index + 1) - accessor(index - stride) - accessor(index + stride)
+                val value = laplacian.toDouble()
                 sum += value
-                sumSq += value.toDouble().pow(2.0)
+                sumSq += value * value
                 count++
             }
         }
         if (count == 0) return 0.0
         val mean = sum / count
-        val variance = sumSq / count - mean.pow(2.0)
-        return if (variance.isNaN() || variance.isInfinite()) 0.0 else variance
+        val variance = sumSq / count - mean * mean
+        return if (variance.isFinite()) variance else 0.0
     }
 
-    fun tenengrad(bitmap: Bitmap): Double {
-        val width = bitmap.width
-        val height = bitmap.height
-        val grayscale = IntArray(width * height)
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val pixel = bitmap.getPixel(x, y)
-                val r = (pixel shr 16 and 0xFF)
-                val g = (pixel shr 8 and 0xFF)
-                val b = (pixel and 0xFF)
-                grayscale[y * width + x] = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-            }
-        }
+    private inline fun tenengrad(width: Int, height: Int, accessor: (Int) -> Int): Double {
+        if (width < 3 || height < 3) return 0.0
+        val area = (width - 2) * (height - 2)
+        if (area <= 0) return 0.0
+        val stride = width
         var sum = 0.0
         for (y in 1 until height - 1) {
+            val row = y * stride
             for (x in 1 until width - 1) {
-                val gx = -grayscale[(y - 1) * width + x - 1] - 2 * grayscale[y * width + x - 1] - grayscale[(y + 1) * width + x - 1] + grayscale[(y - 1) * width + x + 1] + 2 * grayscale[y * width + x + 1] + grayscale[(y + 1) * width + x + 1]
-                val gy = -grayscale[(y - 1) * width + x - 1] - 2 * grayscale[(y - 1) * width + x] - grayscale[(y - 1) * width + x + 1] + grayscale[(y + 1) * width + x - 1] + 2 * grayscale[(y + 1) * width + x] + grayscale[(y + 1) * width + x + 1]
-                val magnitude = sqrt(gx.toDouble().pow(2.0) + gy.toDouble().pow(2.0))
+                val index = row + x
+                val topLeft = accessor(index - stride - 1)
+                val top = accessor(index - stride)
+                val topRight = accessor(index - stride + 1)
+                val left = accessor(index - 1)
+                val right = accessor(index + 1)
+                val bottomLeft = accessor(index + stride - 1)
+                val bottom = accessor(index + stride)
+                val bottomRight = accessor(index + stride + 1)
+                val gx = -topLeft - 2 * left - bottomLeft + topRight + 2 * right + bottomRight
+                val gy = -topLeft - 2 * top - topRight + bottomLeft + 2 * bottom + bottomRight
+                val magnitude = sqrt((gx * gx + gy * gy).toDouble())
                 sum += magnitude
             }
         }
-        return if (sum.isNaN() || sum.isInfinite()) 0.0 else sum / ((width - 2) * (height - 2))
+        val average = sum / area
+        return if (average.isFinite()) average else 0.0
     }
 }
