@@ -1,5 +1,6 @@
 package com.rochias.clarity.iq
 
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 enum class ClarityMethod {
@@ -53,6 +54,18 @@ object Clarity {
         }
         val tenengradValue = sanitizeScore(tenengrad(width, height, luminance))
         return ClarityEvaluation(tenengradValue, ClarityMethod.TENENGRAD, laplacianValue, tenengradValue)
+    }
+
+    fun relativePercentages(scoreA: Double, scoreB: Double): Pair<Int, Int> {
+        val sanitizedA = sanitizeScore(scoreA)
+        val sanitizedB = sanitizeScore(scoreB)
+        val total = sanitizedA + sanitizedB
+        if (total <= 0.0) {
+            return 50 to 50
+        }
+        val percentA = ((sanitizedA / total) * 100.0).roundToInt().coerceIn(0, 100)
+        val percentB = (100 - percentA).coerceIn(0, 100)
+        return percentA to percentB
     }
 
     private inline fun varianceOfLaplacian(width: Int, height: Int, accessor: (Int) -> Int): Double {

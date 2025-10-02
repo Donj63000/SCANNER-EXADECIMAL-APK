@@ -47,13 +47,13 @@ import com.photo.clarity.PhotoSlot
 import com.rochias.clarity.camera.CameraCaptureState
 import com.rochias.clarity.camera.CameraPreview
 import com.rochias.clarity.camera.rememberCameraCaptureState
+import com.rochias.clarity.iq.Clarity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -257,14 +257,8 @@ private fun calculateClarity(bitmapA: Bitmap, bitmapB: Bitmap): ClarityResult {
     val useFallback = varianceA <= 1e-6 && varianceB <= 1e-6
     val scoreA = if (useFallback) tenengrad(bitmapA) else varianceA
     val scoreB = if (useFallback) tenengrad(bitmapB) else varianceB
-    val total = scoreA + scoreB
-    return if (total <= 0.0) {
-        ClarityResult(50, 50)
-    } else {
-        val rawPercentA = ((scoreA / total) * 100.0).roundToInt().coerceIn(0, 100)
-        val percentB = (100 - rawPercentA).coerceIn(0, 100)
-        ClarityResult(rawPercentA, percentB)
-    }
+    val (percentA, percentB) = Clarity.relativePercentages(scoreA, scoreB)
+    return ClarityResult(percentA, percentB)
 }
 
 private fun varianceOfLaplacian(bitmap: Bitmap): Double {

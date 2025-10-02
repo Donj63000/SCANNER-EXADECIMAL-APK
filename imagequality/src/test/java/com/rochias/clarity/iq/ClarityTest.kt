@@ -60,6 +60,32 @@ class ClarityTest {
         assertTrue((subtleScore.tenengradScore ?: 0.0) > 0.0)
     }
 
+    @Test
+    fun relativePercentagesSumToOneHundred() {
+        val cases = listOf(
+            0.0 to 0.0,
+            10.0 to 30.0,
+            0.0 to 5.0,
+            100.0 to 0.0,
+            1_000_000.0 to 1.0,
+            Double.NaN to 40.0,
+            -5.0 to 15.0
+        )
+        cases.forEach { (first, second) ->
+            val (percentA, percentB) = Clarity.relativePercentages(first, second)
+            assertEquals(100, percentA + percentB)
+            assertTrue(percentA in 0..100)
+            assertTrue(percentB in 0..100)
+        }
+    }
+
+    @Test
+    fun relativePercentagesAreBalancedForEqualScores() {
+        val (percentA, percentB) = Clarity.relativePercentages(42.5, 42.5)
+        assertEquals(50, percentA)
+        assertEquals(50, percentB)
+    }
+
     private fun generatePattern(width: Int, height: Int, block: (Int, Int) -> Int): IntArray {
         val buffer = IntArray(width * height)
         for (y in 0 until height) {
