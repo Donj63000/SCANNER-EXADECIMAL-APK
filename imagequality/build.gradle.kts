@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.rochias.clarity.iq"
+    namespace = "com.photo.clarity.iq"
     compileSdk = 36
 
     defaultConfig {

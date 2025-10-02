@@ -1,3 +1,20 @@
 <resources>
-    <string name="app_name">Photo Clarity</string>
+    <string name="app_name">Clarté Photo</string>
+    <string name="screen_title">Comparer la clarté de deux photos</string>
+    <string name="photo_label_a">Photo A</string>
+    <string name="photo_label_b">Photo B</string>
+    <string name="photo_short_label_a">A</string>
+    <string name="photo_short_label_b">B</string>
+    <string name="take_button">Prendre</string>
+    <string name="clear_button">Effacer</string>
+    <string name="compare_button">Comparer</string>
+    <string name="compare_in_progress">Analyse en cours…</string>
+    <string name="placeholder_no_image">Aucune image</string>
+    <string name="result_title">Résultat</string>
+    <string name="result_a_sharper">A est plus nette à %1$d%% (B %2$d%%)</string>
+    <string name="result_b_sharper">B est plus nette à %1$d%% (A %2$d%%)</string>
+    <string name="result_equal">A et B sont aussi nettes (%1$d%% chacun)</string>
+    <string name="badge_photo_percentage">%1$s %2$d%%</string>
+    <string name="photo_preview_content_description">Aperçu de %1$s</string>
+    <string name="camera_permission_required">La permission caméra est nécessaire pour prendre une photo.</string>
 </resources>
