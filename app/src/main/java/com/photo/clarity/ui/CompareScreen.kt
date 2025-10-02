@@ -69,6 +69,7 @@ fun CompareScreen(
             null -> stringResource(R.string.result_equal, it.percentA)
         }
     }
+    val leadingSlot = clarityResult?.leadingSlot
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,6 +90,7 @@ fun CompareScreen(
                 slot = PhotoSlot.A,
                 bitmap = photoA,
                 badgeText = badgeA,
+                isWinner = leadingSlot == PhotoSlot.A,
                 onTakePhoto = onTakePhoto,
                 onClearPhoto = onClearPhoto
             )
@@ -98,6 +100,7 @@ fun CompareScreen(
                 slot = PhotoSlot.B,
                 bitmap = photoB,
                 badgeText = badgeB,
+                isWinner = leadingSlot == PhotoSlot.B,
                 onTakePhoto = onTakePhoto,
                 onClearPhoto = onClearPhoto
             )
@@ -144,10 +147,17 @@ private fun PhotoCard(
     slot: PhotoSlot,
     bitmap: Bitmap?,
     badgeText: String?,
+    isWinner: Boolean,
     onTakePhoto: (PhotoSlot) -> Unit,
     onClearPhoto: (PhotoSlot) -> Unit
 ) {
     val shape = RoundedCornerShape(24.dp)
+    val borderColor = if (isWinner) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outline
+    }
+    val borderWidth = if (isWinner) 3.dp else 1.dp
     Card(
         modifier = modifier,
         shape = shape,
@@ -169,7 +179,7 @@ private fun PhotoCard(
                     .height(220.dp)
                     .clip(shape)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, shape),
+                    .border(borderWidth, borderColor, shape),
                 contentAlignment = Alignment.Center
             ) {
                 if (bitmap != null) {
