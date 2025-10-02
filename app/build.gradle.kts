@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.photo.clarity"
+    namespace = "com.rochias.clarity"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.photo.clarity"
+        applicationId = "com.rochias.clarity"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

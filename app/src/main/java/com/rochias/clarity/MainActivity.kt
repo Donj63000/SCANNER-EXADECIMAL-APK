@@ -1,4 +1,4 @@
-package com.photo.clarity
+package com.rochias.clarity
 
 import android.Manifest
 import android.os.Bundle
@@ -26,7 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
-import com.photo.clarity.ui.CompareScreen
+import com.rochias.clarity.ui.CompareScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

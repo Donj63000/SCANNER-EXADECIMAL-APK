@@ -1,4 +1,4 @@
-package com.photo.clarity.iq
+package com.rochias.clarity.iq
 
 import android.graphics.Bitmap
 import kotlin.math.pow
