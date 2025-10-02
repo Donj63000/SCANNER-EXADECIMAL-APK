@@ -9,6 +9,7 @@
     <string name="clear_button">Effacer</string>
     <string name="compare_button">Comparer</string>
     <string name="compare_in_progress">Analyse en cours…</string>
+    <string name="capture_in_progress">Capture en cours…</string>
     <string name="placeholder_no_image">Aucune image</string>
     <string name="result_title">Résultat</string>
     <string name="result_a_sharper">A est plus nette à %1$d%% (B %2$d%%)</string>
@@ -17,4 +18,8 @@
     <string name="badge_photo_percentage">%1$s %2$d%%</string>
     <string name="photo_preview_content_description">Aperçu de %1$s</string>
     <string name="camera_permission_required">La permission caméra est nécessaire pour prendre une photo.</string>
+    <string name="camera_dialog_title">Aperçu de la caméra</string>
+    <string name="camera_cancel_button">Annuler</string>
+    <string name="camera_capture_button">Capturer</string>
+    <string name="camera_capture_failed">La capture a échoué.</string>
 </resources>
