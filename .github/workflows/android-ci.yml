@@ -29,11 +29,11 @@ jobs:
       - name: Accept licenses
         run: yes | sdkmanager --licenses
 
-      - name: Install Android packages (API 36, fallback 35 si indispo)
+      - name: Install Android packages (API 35)
         run: |
           sdkmanager --install "platform-tools" "cmdline-tools;latest"
-          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-35"
-          sdkmanager --install "build-tools;36.0.0" || sdkmanager --install "build-tools;35.0.0"
+          sdkmanager --install "platforms;android-35"
+          sdkmanager --install "build-tools;35.0.0"
 
       # Génère le wrapper à partir de la distrib officielle Gradle (aucun binaire committé)
       - name: Generate Gradle Wrapper (no binary in git)
