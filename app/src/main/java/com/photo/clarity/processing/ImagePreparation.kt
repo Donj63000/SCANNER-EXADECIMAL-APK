@@ -1,4 +1,4 @@
-package com.rochias.clarity.processing
+package com.photo.clarity.processing
 
 import android.graphics.Bitmap
 import kotlin.math.max

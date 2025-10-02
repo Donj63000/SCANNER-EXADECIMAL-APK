@@ -1,4 +1,4 @@
-package com.rochias.clarity.camera
+package com.photo.clarity.camera
 
 import android.content.ContentValues
 import android.content.Context

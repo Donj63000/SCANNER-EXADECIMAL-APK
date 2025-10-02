@@ -44,10 +44,10 @@ import androidx.core.content.ContextCompat
 import com.photo.clarity.R
 import com.photo.clarity.ui.CompareScreen
 import com.photo.clarity.PhotoSlot
-import com.rochias.clarity.camera.CameraCaptureState
-import com.rochias.clarity.camera.CameraPreview
-import com.rochias.clarity.camera.rememberCameraCaptureState
-import com.rochias.clarity.iq.Clarity
+import com.photo.clarity.camera.CameraCaptureState
+import com.photo.clarity.camera.CameraPreview
+import com.photo.clarity.camera.rememberCameraCaptureState
+import com.photo.clarity.iq.Clarity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -103,7 +103,7 @@ class MainActivity : ComponentActivity() {
                             permissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     }
-                    suspend fun processCapture(slot: PhotoSlot, captured: com.rochias.clarity.camera.CapturedImage) {
+                    suspend fun processCapture(slot: PhotoSlot, captured: com.photo.clarity.camera.CapturedImage) {
                         val bitmap = loadBitmapFromUri(context, captured.uri) ?: captured.bitmap
                         when (slot) {
                             PhotoSlot.A -> {

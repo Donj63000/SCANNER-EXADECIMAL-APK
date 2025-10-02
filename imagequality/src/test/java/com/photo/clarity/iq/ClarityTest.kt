@@ -1,4 +1,4 @@
-package com.rochias.clarity.iq
+package com.photo.clarity.iq
 
 import kotlin.math.abs
 import org.junit.Assert.assertEquals
