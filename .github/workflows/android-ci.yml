@@ -2,12 +2,17 @@ name: Android CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: [ "main" ]      # build + release sur main
+  pull_request:               # build sur PR
+  workflow_dispatch:          # lancement manuel
+
+permissions:
+  contents: write             # nécessaire pour créer/mettre à jour une Release
 
 jobs:
-  android:
+  build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,47 +21,63 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: "17"
 
-      - name: Download Gradle distribution
-        run: |
-          curl -sSLo gradle.zip https://services.gradle.org/distributions/gradle-8.13-bin.zip
-          unzip -q gradle.zip
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Generate Gradle wrapper
+      - name: Accept licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install Android packages (API 36, fallback 35 si indispo)
         run: |
-          ./gradle-8.13/bin/gradle wrapper --gradle-version 8.13
+          sdkmanager --install "platform-tools" "cmdline-tools;latest"
+          sdkmanager --install "platforms;android-36" || sdkmanager --install "platforms;android-35"
+          sdkmanager --install "build-tools;36.0.0" || sdkmanager --install "build-tools;35.0.0"
+
+      # Génère le wrapper à partir de la distrib officielle Gradle (aucun binaire committé)
+      - name: Generate Gradle Wrapper (no binary in git)
+        env:
+          GRADLE_VERSION: "8.13"
+        run: |
+          curl -sSfL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o gradle.zip
+          unzip -q gradle.zip -d "${HOME}/gradle"
+          "${HOME}/gradle/gradle-${GRADLE_VERSION}/bin/gradle" wrapper --gradle-version ${GRADLE_VERSION}
           chmod +x gradlew
 
-      - name: Configure Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 36
-          build-tools: 36.0.0
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v3
 
-      - name: Cache Gradle data
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
+      - name: Setup Gradle (cache)
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Build lint and test
-        run: ./gradlew clean :app:assembleDebug :app:lintDebug :imagequality:testDebugUnitTest
+      - name: Build Debug APK & run tests
+        run: |
+          ./gradlew --version
+          ./gradlew clean :imagequality:testDebugUnitTest :app:assembleDebug :app:lintDebug
 
-      - name: Upload debug APK
+      # 1) Artifact téléchargeable depuis l'onglet "Actions"
+      - name: Upload Debug APK (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: app-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Update nightly release asset
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # 2) Publication en Release "nightly" avec un nom de fichier stable
+      - name: Prepare release asset
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if ! gh release view nightly >/dev/null 2>&1; then
-            gh release create nightly --title "Nightly" --notes "Automated nightly build"
-          fi
-          gh release upload nightly app/build/outputs/apk/debug/app-debug.apk --clobber
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/SCANNER-EXADECIMAL-debug.apk
+
+      - name: Publish/Update "nightly" Release (debug APK)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: dist/SCANNER-EXADECIMAL-debug.apk
+          asset_name: SCANNER-EXADECIMAL-debug.apk
+          tag: nightly
+          release_name: Nightly Debug
+          overwrite: true
+          body: "Commit ${{ github.sha }} — APK debug signé (keystore debug)."
