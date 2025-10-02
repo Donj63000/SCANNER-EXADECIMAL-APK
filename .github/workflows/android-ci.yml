@@ -2,15 +2,15 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main" ]      # build + release sur main
-  pull_request:               # build sur PR
-  workflow_dispatch:          # lancement manuel
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch:
 
 permissions:
-  contents: write             # nécessaire pour créer/mettre à jour une Release
+  contents: write
 
 jobs:
-  build:
+  apk:
     runs-on: ubuntu-latest
 
     steps:
@@ -35,7 +35,6 @@ jobs:
           sdkmanager --install "platforms;android-35"
           sdkmanager --install "build-tools;35.0.0"
 
-      # Génère le wrapper à partir de la distrib officielle Gradle (aucun binaire committé)
       - name: Generate Gradle Wrapper (no binary in git)
         env:
           GRADLE_VERSION: "8.13"
@@ -51,19 +50,15 @@ jobs:
       - name: Setup Gradle (cache)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Debug APK & run tests
-        run: |
-          ./gradlew --version
-          ./gradlew clean :imagequality:testDebugUnitTest :app:assembleDebug :app:lintDebug
+      - name: Assemble Debug APK
+        run: ./gradlew clean :app:assembleDebug
 
-      # 1) Artifact téléchargeable depuis l'onglet "Actions"
       - name: Upload Debug APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      # 2) Publication en Release "nightly" avec un nom de fichier stable
       - name: Prepare release asset
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
@@ -81,3 +76,57 @@ jobs:
           release_name: Nightly Debug
           overwrite: true
           body: "Commit ${{ github.sha }} — APK debug signé (keystore debug)."
+
+  quality:
+    needs: apk
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install Android packages (API 35)
+        run: |
+          sdkmanager --install "platform-tools" "cmdline-tools;latest"
+          sdkmanager --install "platforms;android-35"
+          sdkmanager --install "build-tools;35.0.0"
+
+      - name: Generate Gradle Wrapper (no binary in git)
+        env:
+          GRADLE_VERSION: "8.13"
+        run: |
+          curl -sSfL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o gradle.zip
+          unzip -q gradle.zip -d "${HOME}/gradle"
+          "${HOME}/gradle/gradle-${GRADLE_VERSION}/bin/gradle" wrapper --gradle-version ${GRADLE_VERSION}
+          chmod +x gradlew
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v3
+
+      - name: Setup Gradle (cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run tests and lint
+        run: ./gradlew :imagequality:testDebugUnitTest :app:lintDebug
+
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports-${{ github.sha }}
+          path: |
+            imagequality/build/reports/tests/testDebugUnitTest
+            app/build/reports/lint/lintDebug
