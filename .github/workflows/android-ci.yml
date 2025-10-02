@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -19,21 +19,19 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Prepare Gradle Wrapper
-        run: |
-          set -eo pipefail
-          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            VERSION=$(grep distributionUrl gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-([0-9.]+)-.*/\1/')
-            BASE_URL="https://services.gradle.org/distributions"
-            JAR="gradle-${VERSION}-wrapper.jar"
-            curl -sSfL "${BASE_URL}/${JAR}" -o gradle/wrapper/gradle-wrapper.jar
-            CHECKSUM=$(curl -sSfL "${BASE_URL}/${JAR}.sha256")
-            echo "${CHECKSUM}  gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
-          fi
-          chmod +x gradlew
+      - name: Generate Gradle Wrapper
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: wrapper --gradle-version 8.13
 
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@v3
+      - name: Ensure Gradle Wrapper permissions
+        run: chmod +x gradlew
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 36
+          build-tools: 36.0.0
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -41,11 +39,11 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: \${{ runner.os }}-gradle-\${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
-            \${{ runner.os }}-gradle-
+            ${{ runner.os }}-gradle-
 
-      - name: Build and Test
+      - name: Build, Lint and Test
         run: ./gradlew clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :imagequality:testDebugUnitTest
 
       - name: Upload Debug APK
