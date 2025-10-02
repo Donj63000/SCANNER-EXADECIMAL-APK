@@ -26,12 +26,12 @@
 
 photo-clarity/
 ├─ app/                         # application Android (Compose + CameraX)
-│  └─ src/main/java/com/rochias/clarity/
+│  └─ src/main/java/com/photo/clarity/
 │     ├─ MainActivity.kt
 │     ├─ ui/CompareScreen.kt
 │     └─ camera/CameraCapture.kt
 ├─ imagequality/                # module pur Kotlin pour les algos de netteté
-│  └─ src/main/java/com/rochias/clarity/iq/Clarity.kt
+│  └─ src/main/java/com/photo/clarity/iq/Clarity.kt
 ├─ .github/workflows/android-ci.yml
 ├─ build.gradle.kts / settings.gradle.kts
 ├─ README.md
@@ -141,7 +141,7 @@ photo-clarity/
 * **Kotlin** : null‑safety stricte, immutabilité par défaut, éviter l’alloc dans les boucles chaudes.
 * **Compose** : états via `remember`/`mutableStateOf`, remonter l’état au plus haut nécessaire, UI **stateless** quand possible.
 * **CameraX** : lier/délier les use cases correctement, privilégier `CAPTURE_MODE_MINIMIZE_LATENCY`.
-* **Nommer** : `com.rochias.clarity.*` ; fichiers en PascalCase ; fonctions pures dans `imagequality`.
+* **Nommer** : `com.photo.clarity.*` ; fichiers en PascalCase ; fonctions pures dans `imagequality`.
 * **Erreurs** : catch ciblés, message utilisateur clair, logs minimalistes.
 * **I18n** : tous les strings dans `strings.xml` (prochaine itération).
 
