@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
                     var photoBUri by remember { mutableStateOf<android.net.Uri?>(null) }
                     var isComparing by remember { mutableStateOf(false) }
                     val coroutineScope = rememberCoroutineScope()
+                    var pendingStorageSlot by remember { mutableStateOf<PhotoSlot?>(null) }
                     fun hideCamera() {
                         showCamera = false
                         activeSlot = null
@@ -91,10 +93,7 @@ class MainActivity : ComponentActivity() {
                             activeSlot = null
                         }
                     }
-                    fun launchCamera(slot: PhotoSlot) {
-                        if (isCapturing) {
-                            return
-                        }
+                    fun openCamera(slot: PhotoSlot) {
                         activeSlot = slot
                         val status = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
                         if (status == PackageManager.PERMISSION_GRANTED) {
@@ -102,6 +101,33 @@ class MainActivity : ComponentActivity() {
                         } else {
                             permissionLauncher.launch(Manifest.permission.CAMERA)
                         }
+                    }
+                    val storagePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                        val slot = pendingStorageSlot
+                        if (granted) {
+                            if (slot != null) {
+                                pendingStorageSlot = null
+                                openCamera(slot)
+                            }
+                        } else {
+                            Toast.makeText(context, context.getString(R.string.camera_permission_required), Toast.LENGTH_SHORT).show()
+                            pendingStorageSlot = null
+                            activeSlot = null
+                        }
+                    }
+                    fun launchCamera(slot: PhotoSlot) {
+                        if (isCapturing) {
+                            return
+                        }
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                            val storageStatus = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            if (storageStatus != PackageManager.PERMISSION_GRANTED) {
+                                pendingStorageSlot = slot
+                                storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                return
+                            }
+                        }
+                        openCamera(slot)
                     }
                     suspend fun processCapture(slot: PhotoSlot, captured: com.photo.clarity.camera.CapturedImage) {
                         val bitmap = loadBitmapFromUri(context, captured.uri) ?: captured.bitmap
