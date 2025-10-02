@@ -42,6 +42,8 @@ fun CompareScreen(
     photoB: Bitmap?,
     clarityResult: ClarityResult?,
     isComparing: Boolean,
+    isCapturing: Boolean,
+    canCompare: Boolean,
     onTakePhoto: (PhotoSlot) -> Unit,
     onClearPhoto: (PhotoSlot) -> Unit,
     onCompare: () -> Unit
@@ -102,14 +104,14 @@ fun CompareScreen(
         }
         Button(
             onClick = onCompare,
-            enabled = photoA != null && photoB != null && !isComparing,
+            enabled = canCompare && !isComparing && !isCapturing,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = if (isComparing) {
-                    stringResource(R.string.compare_in_progress)
-                } else {
-                    stringResource(R.string.compare_button)
+                text = when {
+                    isComparing -> stringResource(R.string.compare_in_progress)
+                    isCapturing -> stringResource(R.string.capture_in_progress)
+                    else -> stringResource(R.string.compare_button)
                 }
             )
         }
