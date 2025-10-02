@@ -2,7 +2,21 @@ package com.rochias.clarity.iq
 
 import kotlin.math.sqrt
 
+enum class ClarityMethod {
+    LAPLACIAN,
+    TENENGRAD
+}
+
+data class ClarityEvaluation(
+    val score: Double,
+    val method: ClarityMethod,
+    val laplacianScore: Double,
+    val tenengradScore: Double?
+)
+
 object Clarity {
+    private const val NEAR_ZERO_VARIANCE = 1e-6
+
     fun varianceOfLaplacian(width: Int, height: Int, luminance: ByteArray): Double {
         require(luminance.size == width * height) { "Luminance size mismatch" }
         return varianceOfLaplacian(width, height) { luminance[it].toInt() and 0xFF }
@@ -21,6 +35,24 @@ object Clarity {
     fun tenengrad(width: Int, height: Int, luminance: IntArray): Double {
         require(luminance.size == width * height) { "Luminance size mismatch" }
         return tenengrad(width, height) { luminance[it] }
+    }
+
+    fun clarityScore(width: Int, height: Int, luminance: ByteArray, varianceThreshold: Double = NEAR_ZERO_VARIANCE): ClarityEvaluation {
+        val laplacianValue = sanitizeScore(varianceOfLaplacian(width, height, luminance))
+        if (laplacianValue > varianceThreshold) {
+            return ClarityEvaluation(laplacianValue, ClarityMethod.LAPLACIAN, laplacianValue, null)
+        }
+        val tenengradValue = sanitizeScore(tenengrad(width, height, luminance))
+        return ClarityEvaluation(tenengradValue, ClarityMethod.TENENGRAD, laplacianValue, tenengradValue)
+    }
+
+    fun clarityScore(width: Int, height: Int, luminance: IntArray, varianceThreshold: Double = NEAR_ZERO_VARIANCE): ClarityEvaluation {
+        val laplacianValue = sanitizeScore(varianceOfLaplacian(width, height, luminance))
+        if (laplacianValue > varianceThreshold) {
+            return ClarityEvaluation(laplacianValue, ClarityMethod.LAPLACIAN, laplacianValue, null)
+        }
+        val tenengradValue = sanitizeScore(tenengrad(width, height, luminance))
+        return ClarityEvaluation(tenengradValue, ClarityMethod.TENENGRAD, laplacianValue, tenengradValue)
     }
 
     private inline fun varianceOfLaplacian(width: Int, height: Int, accessor: (Int) -> Int): Double {
@@ -72,5 +104,11 @@ object Clarity {
         }
         val average = sum / area
         return if (average.isFinite()) average else 0.0
+    }
+
+    private fun sanitizeScore(value: Double): Double {
+        if (!value.isFinite()) return 0.0
+        if (value < 0.0) return 0.0
+        return value
     }
 }

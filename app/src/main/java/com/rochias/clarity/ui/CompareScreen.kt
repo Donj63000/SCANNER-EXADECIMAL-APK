@@ -37,6 +37,8 @@ import com.rochias.clarity.camera.CameraPreview
 import com.rochias.clarity.camera.CameraCaptureState
 import com.rochias.clarity.camera.rememberCameraCaptureState
 import com.rochias.clarity.iq.Clarity
+import com.rochias.clarity.iq.ClarityEvaluation
+import com.rochias.clarity.iq.ClarityMethod
 import com.rochias.clarity.processing.extractLuminance
 import kotlinx.coroutines.launch
 
@@ -46,8 +48,8 @@ fun CompareScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var firstBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var secondBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var firstScores by remember { mutableStateOf<ClarityScores?>(null) }
-    var secondScores by remember { mutableStateOf<ClarityScores?>(null) }
+    var firstClarity by remember { mutableStateOf<ClarityEvaluation?>(null) }
+    var secondClarity by remember { mutableStateOf<ClarityEvaluation?>(null) }
     var isCapturing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     Column(
@@ -64,7 +66,7 @@ fun CompareScreen(modifier: Modifier = Modifier) {
                 scope.launch {
                     captureImage(cameraState, onResult = { bitmap ->
                         firstBitmap = bitmap
-                        firstScores = bitmap?.let { evaluateClarity(it) }
+                        firstClarity = bitmap?.let { evaluateClarity(it) }
                     }, onError = { message ->
                         errorMessage = message
                     }, onStateChange = { busy ->
@@ -76,7 +78,7 @@ fun CompareScreen(modifier: Modifier = Modifier) {
                 scope.launch {
                     captureImage(cameraState, onResult = { bitmap ->
                         secondBitmap = bitmap
-                        secondScores = bitmap?.let { evaluateClarity(it) }
+                        secondClarity = bitmap?.let { evaluateClarity(it) }
                     }, onError = { message ->
                         errorMessage = message
                     }, onStateChange = { busy ->
@@ -85,7 +87,7 @@ fun CompareScreen(modifier: Modifier = Modifier) {
                 }
             }
         )
-        ResultSection(firstScores, secondScores, firstBitmap, secondBitmap)
+        ResultSection(firstClarity, secondClarity, firstBitmap, secondBitmap)
         ErrorMessage(errorMessage)
         LaunchedEffect(firstBitmap, secondBitmap) {
             if (errorMessage != null) {
@@ -152,8 +154,8 @@ private fun CaptureControls(
 
 @Composable
 private fun ResultSection(
-    firstScores: ClarityScores?,
-    secondScores: ClarityScores?,
+    firstScores: ClarityEvaluation?,
+    secondScores: ClarityEvaluation?,
     firstBitmap: Bitmap?,
     secondBitmap: Bitmap?
 ) {
@@ -168,10 +170,14 @@ private fun ResultSection(
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(text = "Clarity Results", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            val laplacian = relativePercentage(firstScores?.laplacian, secondScores?.laplacian)
-            val tenengrad = relativePercentage(firstScores?.tenengrad, secondScores?.tenengrad)
-            Text(text = "Variance of Laplacian: ${laplacian.first}% vs ${laplacian.second}%")
-            Text(text = "Tenengrad: ${tenengrad.first}% vs ${tenengrad.second}%")
+            val percentages = relativePercentage(firstScores, secondScores)
+            Text(text = "Clarity index: ${percentages.first}% vs ${percentages.second}%")
+            firstScores?.let {
+                Text(text = "First image method: ${methodLabel(it.method)}")
+            }
+            secondScores?.let {
+                Text(text = "Second image method: ${methodLabel(it.method)}")
+            }
             if (firstBitmap != null || secondBitmap != null) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     firstBitmap?.let {
@@ -238,16 +244,14 @@ private suspend fun captureImage(
     onStateChange(false)
 }
 
-private fun evaluateClarity(bitmap: Bitmap): ClarityScores {
+private fun evaluateClarity(bitmap: Bitmap): ClarityEvaluation {
     val image = extractLuminance(bitmap)
-    val laplacian = Clarity.varianceOfLaplacian(image.width, image.height, image.luminance)
-    val tenengrad = Clarity.tenengrad(image.width, image.height, image.luminance)
-    return ClarityScores(laplacian, tenengrad)
+    return Clarity.clarityScore(image.width, image.height, image.luminance)
 }
 
-private fun relativePercentage(first: Double?, second: Double?): Pair<Int, Int> {
-    val firstValue = first ?: 0.0
-    val secondValue = second ?: 0.0
+private fun relativePercentage(first: ClarityEvaluation?, second: ClarityEvaluation?): Pair<Int, Int> {
+    val firstValue = first?.score ?: 0.0
+    val secondValue = second?.score ?: 0.0
     val total = firstValue + secondValue
     if (total <= 0.0) return 50 to 50
     val firstPercent = ((firstValue / total) * 100).toInt()
@@ -255,7 +259,9 @@ private fun relativePercentage(first: Double?, second: Double?): Pair<Int, Int> 
     return firstPercent to secondPercent
 }
 
-data class ClarityScores(
-    val laplacian: Double,
-    val tenengrad: Double
-)
+private fun methodLabel(method: ClarityMethod): String {
+    return when (method) {
+        ClarityMethod.LAPLACIAN -> "Laplacian"
+        ClarityMethod.TENENGRAD -> "Tenengrad"
+    }
+}
