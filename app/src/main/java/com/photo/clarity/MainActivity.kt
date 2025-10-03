@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -74,22 +75,29 @@ class MainActivity : ComponentActivity() {
                     val cameraState = rememberCameraCaptureState()
                     var showCamera by remember { mutableStateOf(false) }
                     var isCapturing by remember { mutableStateOf(false) }
-                    var photoAUri by remember { mutableStateOf<android.net.Uri?>(null) }
-                    var photoBUri by remember { mutableStateOf<android.net.Uri?>(null) }
+                    var photoAUri by remember { mutableStateOf<Uri?>(null) }
+                    var photoBUri by remember { mutableStateOf<Uri?>(null) }
                     var isComparing by remember { mutableStateOf(false) }
                     val coroutineScope = rememberCoroutineScope()
                     var pendingStorageSlot by remember { mutableStateOf<PhotoSlot?>(null) }
+                    var pendingImportSlot by remember { mutableStateOf<PhotoSlot?>(null) }
+                    var deniedCameraSlots by remember { mutableStateOf(setOf<PhotoSlot>()) }
                     fun hideCamera() {
                         showCamera = false
                         activeSlot = null
                     }
                     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                         if (granted) {
-                            if (activeSlot != null) {
+                            val slot = activeSlot
+                            if (slot != null) {
+                                deniedCameraSlots = deniedCameraSlots - slot
                                 showCamera = true
                             }
                         } else {
                             Toast.makeText(context, context.getString(R.string.camera_permission_required), Toast.LENGTH_SHORT).show()
+                            activeSlot?.let { slot ->
+                                deniedCameraSlots = deniedCameraSlots + slot
+                            }
                             activeSlot = null
                         }
                     }
@@ -97,6 +105,7 @@ class MainActivity : ComponentActivity() {
                         activeSlot = slot
                         val status = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
                         if (status == PackageManager.PERMISSION_GRANTED) {
+                            deniedCameraSlots = deniedCameraSlots - slot
                             showCamera = true
                         } else {
                             permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -128,6 +137,38 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         openCamera(slot)
+                    }
+                    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+                        val slot = pendingImportSlot
+                        pendingImportSlot = null
+                        if (slot != null && uri != null) {
+                            coroutineScope.launch {
+                                val bitmap = try {
+                                    loadBitmapFromUri(context, uri)
+                                } catch (error: Throwable) {
+                                    null
+                                }
+                                if (bitmap != null) {
+                                    when (slot) {
+                                        PhotoSlot.A -> {
+                                            photoAUri = uri
+                                            photoA = bitmap
+                                        }
+                                        PhotoSlot.B -> {
+                                            photoBUri = uri
+                                            photoB = bitmap
+                                        }
+                                    }
+                                    clarityResult = null
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.import_failed), Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                    fun importPhoto(slot: PhotoSlot) {
+                        pendingImportSlot = slot
+                        importLauncher.launch("image/*")
                     }
                     suspend fun processCapture(slot: PhotoSlot, captured: com.photo.clarity.camera.CapturedImage) {
                         val bitmap = loadBitmapFromUri(context, captured.uri) ?: captured.bitmap
@@ -169,7 +210,9 @@ class MainActivity : ComponentActivity() {
                         isComparing = isComparing,
                         isCapturing = isCapturing,
                         canCompare = canCompare,
+                        deniedCameraSlots = deniedCameraSlots,
                         onTakePhoto = { slot -> launchCamera(slot) },
+                        onImportPhoto = { slot -> importPhoto(slot) },
                         onClearPhoto = { slot ->
                             when (slot) {
                                 PhotoSlot.A -> photoA = null
@@ -180,6 +223,9 @@ class MainActivity : ComponentActivity() {
                                 PhotoSlot.B -> photoBUri = null
                             }
                             clarityResult = null
+                            if (deniedCameraSlots.contains(slot)) {
+                                deniedCameraSlots = deniedCameraSlots - slot
+                            }
                         },
                         onCompare = {
                             val first = photoA
@@ -211,7 +257,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private suspend fun loadBitmapFromUri(context: Context, uri: android.net.Uri): Bitmap? {
+private suspend fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
     return withContext(Dispatchers.IO) {
         context.contentResolver.openInputStream(uri)?.use { stream ->
             BitmapFactory.decodeStream(stream)

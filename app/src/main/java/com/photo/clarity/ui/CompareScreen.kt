@@ -22,6 +22,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,7 +45,9 @@ fun CompareScreen(
     isComparing: Boolean,
     isCapturing: Boolean,
     canCompare: Boolean,
+    deniedCameraSlots: Set<PhotoSlot>,
     onTakePhoto: (PhotoSlot) -> Unit,
+    onImportPhoto: (PhotoSlot) -> Unit,
     onClearPhoto: (PhotoSlot) -> Unit,
     onCompare: () -> Unit
 ) {
@@ -70,6 +73,7 @@ fun CompareScreen(
         }
     }
     val leadingSlot = clarityResult?.leadingSlot
+    val isBusy = isComparing || isCapturing
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -91,7 +95,10 @@ fun CompareScreen(
                 bitmap = photoA,
                 badgeText = badgeA,
                 isWinner = leadingSlot == PhotoSlot.A,
+                isBusy = isBusy,
+                isCameraPermissionDenied = deniedCameraSlots.contains(PhotoSlot.A),
                 onTakePhoto = onTakePhoto,
+                onImportPhoto = onImportPhoto,
                 onClearPhoto = onClearPhoto
             )
             PhotoCard(
@@ -101,7 +108,10 @@ fun CompareScreen(
                 bitmap = photoB,
                 badgeText = badgeB,
                 isWinner = leadingSlot == PhotoSlot.B,
+                isBusy = isBusy,
+                isCameraPermissionDenied = deniedCameraSlots.contains(PhotoSlot.B),
                 onTakePhoto = onTakePhoto,
+                onImportPhoto = onImportPhoto,
                 onClearPhoto = onClearPhoto
             )
         }
@@ -148,7 +158,10 @@ private fun PhotoCard(
     bitmap: Bitmap?,
     badgeText: String?,
     isWinner: Boolean,
+    isBusy: Boolean,
+    isCameraPermissionDenied: Boolean,
     onTakePhoto: (PhotoSlot) -> Unit,
+    onImportPhoto: (PhotoSlot) -> Unit,
     onClearPhoto: (PhotoSlot) -> Unit
 ) {
     val shape = RoundedCornerShape(24.dp)
@@ -203,16 +216,40 @@ private fun PhotoCard(
             ) {
                 Button(
                     onClick = { onTakePhoto(slot) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = !isCameraPermissionDenied && !isBusy
                 ) {
                     Text(text = stringResource(R.string.take_button))
                 }
                 OutlinedButton(
+                    onClick = { onImportPhoto(slot) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isBusy
+                ) {
+                    Text(text = stringResource(R.string.import_button))
+                }
+                OutlinedButton(
                     onClick = { onClearPhoto(slot) },
                     modifier = Modifier.weight(1f),
-                    enabled = bitmap != null
+                    enabled = bitmap != null && !isBusy
                 ) {
                     Text(text = stringResource(R.string.clear_button))
+                }
+            }
+            if (isCameraPermissionDenied) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.camera_permission_denied_message),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    TextButton(onClick = { onImportPhoto(slot) }) {
+                        Text(text = stringResource(R.string.import_button))
+                    }
                 }
             }
             if (badgeText != null) {
