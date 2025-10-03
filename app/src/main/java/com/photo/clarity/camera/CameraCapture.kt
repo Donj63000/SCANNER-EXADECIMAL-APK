@@ -20,7 +20,13 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.camera.view.PreviewView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -35,19 +41,36 @@ class CameraCaptureState internal constructor(
     val controller: LifecycleCameraController
 ) {
     suspend fun captureBitmap(): CapturedImage? = suspendCancellableCoroutine { continuation ->
+        val mainExecutor = ContextCompat.getMainExecutor(context)
+        var processingJob: Job? = null
         controller.takePicture(
-            ContextCompat.getMainExecutor(context),
+            mainExecutor,
             object : androidx.camera.core.ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
-                    val result = runCatching {
-                        val rotation = image.imageInfo.rotationDegrees
-                        val bitmap = image.toBitmap().rotate(rotation)
-                        val uri = context.saveBitmapToClarity(bitmap)
-                        CapturedImage(uri, bitmap)
+                    if (!continuation.isActive) {
+                        image.close()
+                        return
                     }
-                    image.close()
-                    result.onSuccess { continuation.resume(it) }
-                        .onFailure { continuation.resumeWithException(it) }
+                    val scope = CoroutineScope(continuation.context + Dispatchers.IO)
+                    processingJob = scope.launch {
+                        val result = try {
+                            val rotation = image.imageInfo.rotationDegrees
+                            val bitmap = image.toBitmap().rotate(rotation)
+                            val uri = context.saveBitmapToClarity(bitmap)
+                            Result.success(CapturedImage(uri, bitmap))
+                        } catch (error: Throwable) {
+                            if (error is CancellationException) throw error
+                            Result.failure(error)
+                        } finally {
+                            image.close()
+                        }
+                        if (!continuation.isActive) return@launch
+                        withContext(Dispatchers.Main) {
+                            if (!continuation.isActive) return@withContext
+                            result.onSuccess { continuation.resume(it) }
+                                .onFailure { continuation.resumeWithException(it) }
+                        }
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -55,6 +78,9 @@ class CameraCaptureState internal constructor(
                 }
             }
         )
+        continuation.invokeOnCancellation {
+            processingJob?.cancel()
+        }
     }
 }
 
