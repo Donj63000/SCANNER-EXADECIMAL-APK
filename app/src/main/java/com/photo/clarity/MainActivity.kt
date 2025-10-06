@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -171,7 +172,7 @@ class MainActivity : ComponentActivity() {
                         importLauncher.launch("image/*")
                     }
                     suspend fun processCapture(slot: PhotoSlot, captured: com.photo.clarity.camera.CapturedImage) {
-                        val bitmap = loadBitmapFromUri(context, captured.uri) ?: captured.bitmap
+                        val bitmap = loadBitmapFromUri(context, captured.uri) ?: ensureSoftwareArgb8888(ensureSizeWithinLimit(captured.bitmap, MAX_BITMAP_DIMENSION))
                         when (slot) {
                             PhotoSlot.A -> {
                                 photoAUri = captured.uri
@@ -257,12 +258,89 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private const val MAX_BITMAP_DIMENSION = 1024
+
 private suspend fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
     return withContext(Dispatchers.IO) {
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream)
+        try {
+            val resolver = context.contentResolver
+            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val source = ImageDecoder.createSource(resolver, uri)
+                ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                    val width = info.size.width
+                    val height = info.size.height
+                    val maxSide = max(width, height)
+                    if (maxSide > MAX_BITMAP_DIMENSION) {
+                        val scale = MAX_BITMAP_DIMENSION.toFloat() / maxSide.toFloat()
+                        val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
+                        val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
+                        decoder.setTargetSize(targetWidth, targetHeight)
+                    }
+                }
+            } else {
+                val boundsOptions = BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                    inJustDecodeBounds = true
+                }
+                resolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, boundsOptions)
+                }
+                val sampleSize = computeSampleSize(boundsOptions.outWidth, boundsOptions.outHeight, MAX_BITMAP_DIMENSION)
+                val decodeOptions = BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                    inSampleSize = sampleSize
+                }
+                val decoded = resolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, decodeOptions)
+                }
+                decoded?.let { ensureSizeWithinLimit(it, MAX_BITMAP_DIMENSION) }
+            }
+            bitmap?.let { ensureSoftwareArgb8888(it) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: OutOfMemoryError) {
+            null
+        } catch (error: Exception) {
+            null
         }
     }
+}
+
+private fun computeSampleSize(width: Int, height: Int, maxDimension: Int): Int {
+    if (width <= 0 || height <= 0) {
+        return 1
+    }
+    var sampleSize = 1
+    var currentMax = max(width, height)
+    while (currentMax / sampleSize > maxDimension) {
+        sampleSize *= 2
+    }
+    return sampleSize
+}
+
+private fun ensureSizeWithinLimit(bitmap: Bitmap, maxDimension: Int): Bitmap {
+    val maxSide = max(bitmap.width, bitmap.height)
+    if (maxSide <= maxDimension) {
+        return bitmap
+    }
+    val scale = maxDimension.toFloat() / maxSide.toFloat()
+    val targetWidth = (bitmap.width * scale).roundToInt().coerceAtLeast(1)
+    val targetHeight = (bitmap.height * scale).roundToInt().coerceAtLeast(1)
+    val scaled = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    if (scaled !== bitmap) {
+        bitmap.recycle()
+    }
+    return scaled
+}
+
+private fun ensureSoftwareArgb8888(bitmap: Bitmap): Bitmap {
+    val needsCopy = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && bitmap.config == Bitmap.Config.HARDWARE) || bitmap.config != Bitmap.Config.ARGB_8888
+    if (!needsCopy) {
+        return bitmap
+    }
+    val converted = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+    return converted ?: bitmap
 }
 
 @Composable
