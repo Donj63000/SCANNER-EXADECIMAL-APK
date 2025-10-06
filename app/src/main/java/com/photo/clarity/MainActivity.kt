@@ -1,10 +1,12 @@
 package com.photo.clarity
 
 import android.Manifest
+import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
@@ -58,6 +60,7 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -265,36 +268,9 @@ private suspend fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
         try {
             val resolver = context.contentResolver
             val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val source = ImageDecoder.createSource(resolver, uri)
-                ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                    val width = info.size.width
-                    val height = info.size.height
-                    val maxSide = max(width, height)
-                    if (maxSide > MAX_BITMAP_DIMENSION) {
-                        val scale = MAX_BITMAP_DIMENSION.toFloat() / maxSide.toFloat()
-                        val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
-                        val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
-                        decoder.setTargetSize(targetWidth, targetHeight)
-                    }
-                }
+                decodeWithImageDecoder(resolver, uri)
             } else {
-                val boundsOptions = BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                    inJustDecodeBounds = true
-                }
-                resolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream, null, boundsOptions)
-                }
-                val sampleSize = computeSampleSize(boundsOptions.outWidth, boundsOptions.outHeight, MAX_BITMAP_DIMENSION)
-                val decodeOptions = BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                    inSampleSize = sampleSize
-                }
-                val decoded = resolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream, null, decodeOptions)
-                }
-                decoded?.let { ensureSizeWithinLimit(it, MAX_BITMAP_DIMENSION) }
+                decodeWithBitmapFactory(resolver, uri)
             }
             bitmap?.let { ensureSoftwareArgb8888(it) }
         } catch (error: CancellationException) {
@@ -305,6 +281,41 @@ private suspend fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
             null
         }
     }
+}
+
+private fun decodeWithImageDecoder(resolver: ContentResolver, uri: Uri): Bitmap? {
+    val source = ImageDecoder.createSource(resolver, uri)
+    return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+        decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        val width = info.size.width
+        val height = info.size.height
+        val maxSide = max(width, height)
+        if (maxSide > MAX_BITMAP_DIMENSION) {
+            val scale = MAX_BITMAP_DIMENSION.toFloat() / maxSide.toFloat()
+            val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
+            val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
+            decoder.setTargetSize(targetWidth, targetHeight)
+        }
+    }
+}
+
+private fun decodeWithBitmapFactory(resolver: ContentResolver, uri: Uri): Bitmap? {
+    val boundsOptions = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+        inJustDecodeBounds = true
+    }
+    resolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream, null, boundsOptions)
+    }
+    val sampleSize = computeSampleSize(boundsOptions.outWidth, boundsOptions.outHeight, MAX_BITMAP_DIMENSION)
+    val decodeOptions = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+        inSampleSize = sampleSize
+    }
+    val decoded = resolver.openInputStream(uri)?.use { stream ->
+        BitmapFactory.decodeStream(stream, null, decodeOptions)
+    } ?: return null
+    return ensureSizeWithinLimit(decoded, MAX_BITMAP_DIMENSION)
 }
 
 private fun computeSampleSize(width: Int, height: Int, maxDimension: Int): Int {
@@ -340,7 +351,12 @@ private fun ensureSoftwareArgb8888(bitmap: Bitmap): Bitmap {
         return bitmap
     }
     val converted = bitmap.copy(Bitmap.Config.ARGB_8888, false)
-    return converted ?: bitmap
+    if (converted != null) {
+        return converted
+    }
+    val fallback = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+    Canvas(fallback).drawBitmap(bitmap, 0f, 0f, null)
+    return fallback
 }
 
 @Composable
@@ -470,14 +486,17 @@ private fun tenengrad(bitmap: Bitmap): Double {
             val index = y * width + x
             val gx = -luminance[index - width - 1] - 2 * luminance[index - 1] - luminance[index + width - 1] + luminance[index - width + 1] + 2 * luminance[index + 1] + luminance[index + width + 1]
             val gy = -luminance[index - width - 1] - 2 * luminance[index - width] - luminance[index - width + 1] + luminance[index + width - 1] + 2 * luminance[index + width] + luminance[index + width + 1]
-            sum += gx * gx + gy * gy
+            val magnitude = sqrt(gx * gx + gy * gy)
+            sum += magnitude
         }
     }
-    val average = sum / ((width - 2) * (height - 2))
+    val area = (width - 2) * (height - 2)
+    val average = sum / area
+    val result = if (average.isFinite()) average else 0.0
     if (processed !== bitmap) {
         processed.recycle()
     }
-    return average
+    return result
 }
 
 private fun Bitmap.downscale(maxDimension: Int): Bitmap {
